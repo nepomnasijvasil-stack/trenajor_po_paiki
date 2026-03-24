@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>Тренажёр по пайке | Двухшаговая пропайка</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { background: #0A0C10; font-family: 'Segoe UI', system-ui; margin: 0; padding: 12px; color: #EFF3F8; }
+        .trainer-container { max-width: 1300px; margin: 0 auto; background: #11161d; border-radius: 1.8rem; padding: 1.2rem; box-shadow: 0 20px 40px rgba(0,0,0,0.4); border: 1px solid rgba(255,140,66,0.2); }
+        .header-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
+        h1 { font-size: 1.4rem; margin: 0; display: flex; gap: 8px; align-items: center; }
+        .controls-header { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .lang-btn, .sound-toggle, .lefty-toggle { background: #1E293B; border: 1px solid #FF8C42; color: #FFB347; padding: 6px 12px; border-radius: 30px; cursor: pointer; font-size: 0.8rem; font-weight: 600; }
+        .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid #2a2f38; padding-bottom: 8px; flex-wrap: wrap; }
+        .tab-btn { background: transparent; border: none; color: #9aa4b2; font-size: 1rem; font-weight: 600; padding: 8px 20px; border-radius: 40px; cursor: pointer; transition: 0.2s; }
+        .tab-btn.active { background: #FF8C42; color: #0A0C10; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .board-selector { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
+        .board-btn { background: #1E293B; border: 1px solid #FF8C42; color: #FFB347; padding: 8px 12px; border-radius: 40px; font-weight: 600; cursor: pointer; font-size: 0.75rem; flex: 1; text-align: center; transition: 0.1s; }
+        .board-btn.active { background: #FF8C42; color: #0A0C10; }
+        .workbench { display: flex; flex-direction: column; gap: 20px; margin: 20px 0; }
+        .solder-area { background: #1e2a2f; border-radius: 28px; padding: 16px; text-align: center; position: relative; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.4), 0 8px 20px rgba(0,0,0,0.3); }
+        .pcb-canvas { background: #2c5a2e; border-radius: 16px; width: 100%; height: auto; max-width: 700px; display: block; margin: 0 auto; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+        .selected-hint { background: #FF8C42; color: #0A0C10; border-radius: 40px; padding: 6px 12px; font-size: 0.8rem; font-weight: bold; margin-top: 8px; display: inline-block; }
+        .progress-bar { background: #1A1F28; border-radius: 20px; padding: 8px 12px; margin-top: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .progress-steps { display: flex; gap: 6px; flex-wrap: wrap; }
+        .step-dot { width: 28px; height: 28px; border-radius: 50%; background: #2A2F38; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; color: #9aa4b2; cursor: pointer; transition: 0.1s; }
+        .step-dot.soldered { background: #4CAF50; color: white; }
+        .step-dot.selected { background: #FF8C42; color: #0A0C10; transform: scale(1.1); box-shadow: 0 0 8px #FF8C42; }
+        .control-panel { background: #0F131A; border-radius: 28px; padding: 18px; border: 1px solid #2a2f38; }
+        .param-card { background: #1A1F28; border-radius: 20px; padding: 14px; margin-bottom: 20px; }
+        .temp-slider { display: flex; flex-direction: column; gap: 10px; }
+        input[type="range"] { width: 100%; height: 8px; -webkit-appearance: none; background: #2a2f38; border-radius: 10px; }
+        input[type="range"]::-webkit-slider-thumb { width: 26px; height: 26px; background: #FF8C42; border-radius: 50%; cursor: pointer; }
+        .temp-value { font-weight: bold; color: #FFB347; font-size: 1.3rem; }
+        .step-buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+        .step-btn { flex: 1; background: #1E293B; border: 1px solid #FF8C42; color: #FFB347; padding: 12px 6px; border-radius: 50px; font-weight: 600; cursor: pointer; text-align: center; font-size: 0.85rem; min-height: 52px; display: flex; align-items: center; justify-content: center; }
+        .step-btn.active { background: #FF8C42; color: #0A0C10; }
+        .step-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-solder { background: linear-gradient(105deg, #FF8C42, #FFB347); border: none; color: #0A0C10; font-weight: bold; padding: 14px 0; width: 100%; border-radius: 60px; font-size: 1rem; margin: 12px 0; cursor: pointer; }
+        .feedback { background: #00000055; border-radius: 20px; padding: 16px; margin-top: 18px; border-left: 4px solid #FF8C42; }
+        .score-badge { font-size: 1.6rem; font-weight: 800; color: #FFB347; }
+        .mistake-list { margin-top: 12px; font-size: 0.8rem; color: #ffaa88; }
+        .stats-card { background: #0F131A; border-radius: 28px; padding: 20px; margin-bottom: 20px; border: 1px solid #2a2f38; }
+        .stats-title { font-size: 1.2rem; font-weight: bold; color: #FFB347; margin-bottom: 12px; }
+        .chart-container { max-width: 400px; margin: 20px auto; }
+        .attempts-list { max-height: 250px; overflow-y: auto; background: #1A1F28; border-radius: 20px; padding: 12px; }
+        .attempt-item { display: flex; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid #2a2f38; font-size: 0.9rem; }
+        .lefty-mode .step-buttons { flex-direction: row-reverse; }
+        @media (min-width: 700px) { .workbench { flex-direction: row; } .solder-area { flex: 2; } .control-panel { flex: 1.2; } }
+        @media (max-width: 480px) { .step-btn { font-size: 0.7rem; padding: 8px 4px; min-height: 44px; } .step-dot { width: 24px; height: 24px; } }
+    </style>
+</head>
+<body>
+<div class="trainer-container">
+    <div class="header-top">
+        <h1>🔧 Тренажёр по пайке <span style="font-size:0.7rem;">2-шаговая пропайка</span></h1>
+        <div class="controls-header">
+            <button id="langToggle" class="lang-btn">🇷🇺 RU</button>
+            <button id="soundToggle" class="sound-toggle">🔊 Звук вкл</button>
+            <button id="leftyToggle" class="lefty-toggle">🖐️ Левша</button>
+        </div>
+    </div>
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="trainer">🛠️ Тренажёр</button>
+        <button class="tab-btn" data-tab="stats">📊 Оценка и статистика</button>
+    </div>
+
+    <div id="trainerTab" class="tab-content active">
+        <div class="board-selector" id="boardSelector">
+            <div class="board-btn" data-board="tht">🔌 THT рез</div><div class="board-btn" data-board="smd">📱 SMD рез</div>
+            <div class="board-btn" data-board="soic">🧩 SOIC-8</div><div class="board-btn" data-board="led">💡 LED</div>
+            <div class="board-btn" data-board="capacitor">⚡ Конд</div><div class="board-btn" data-board="transistor">🔘 Транз</div>
+            <div class="board-btn" data-board="connector">🔌 Разъём</div><div class="board-btn" data-board="crystal">🕒 Кварц</div>
+            <div class="board-btn" data-board="mcu">💻 MCU QFP</div>
+        </div>
+        <div class="workbench">
+            <div class="solder-area">
+                <canvas id="pcbCanvas" class="pcb-canvas" width="700" height="500" style="width:100%; height:auto; max-width:700px;"></canvas>
+                <div style="margin-top: 8px;"><span id="selectedHint" class="selected-hint">🔍 Выберите контакт на плате</span></div>
+                <div class="progress-bar"><span class="progress-text">📌 Прогресс пропайки:</span><div class="progress-steps" id="progressSteps"></div></div>
+                <div class="pcb-label">✏️ Кликните по контакту → выберите, затем нажмите «Подать припой»</div>
+            </div>
+            <div class="control-panel">
+                <div class="param-card"><div style="display: flex; justify-content: space-between;"><span>🌡️ Температура жала</span><span class="temp-value" id="tempValue">300°C</span></div>
+                    <div class="temp-slider"><input type="range" id="tempSlider" min="200" max="450" value="300" step="5"><div style="font-size:0.7rem;" id="tempHint"></div></div>
+                </div>
+                <div class="step-buttons"><div class="step-btn" id="stepHeatBtn">🔥 НАГРЕТЬ</div><div class="step-btn" id="stepSolderBtn" disabled>🟡 ПОДАТЬ припой</div><div class="step-btn" id="stepFinishBtn" disabled>✅ ЗАВЕРШИТЬ</div></div>
+                <button class="btn-solder" id="emergencyReset">🔄 Сбросить упражнение</button>
+                <div class="feedback"><div style="display: flex; justify-content: space-between;"><span>📊 Результат:</span><span class="score-badge" id="scoreDisplay">—</span></div>
+                    <div id="statusMessage"><span class="status-led" style="background:#aaa;"></span> Ожидание</div>
+                    <div id="mistakeDetails" class="mistake-list"></div><div id="qualityHint" style="margin-top:8px; font-size:0.75rem;"></div>
+                </div>
+                <div class="info-panel"><strong>ℹ️ Методические рекомендации</strong><br><span id="componentInfo">Выберите плату.</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="statsTab" class="tab-content">
+        <div class="stats-card"><div class="stats-title">📈 Общая статистика</div>
+            <div style="display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 20px;">
+                <div><div style="font-size:0.8rem;">Всего попыток</div><div class="stats-value" id="statsTotalAttempts">0</div></div>
+                <div><div style="font-size:0.8rem;">Средний балл</div><div class="stats-value" id="statsAvgScore">—</div></div>
+                <div><div style="font-size:0.8rem;">Лучший результат</div><div class="stats-value" id="statsBestScore">—</div></div>
+            </div>
+            <div class="stats-title">📊 Динамика успеваемости</div>
+            <div class="chart-container"><canvas id="scoreChart" width="400" height="200"></canvas></div>
+            <div class="stats-title">📋 История попыток</div>
+            <div id="attemptsList" class="attempts-list">Нет данных</div>
+            <div style="margin-top:16px; background:#1A1F28; border-radius:20px; padding:12px;"><strong>💡 Рекомендации</strong><br><span id="recommendationText">Выполните несколько попыток.</span></div>
+            <button id="exportPdfBtn" class="btn-solder" style="background:#2A2F38; color:#FFB347; margin-top:16px;">📄 Экспорт отчёта в PDF</button>
+            <button id="clearStatsBtn" class="btn-solder" style="background:#2A2F38; color:#FFB347; margin-top:8px;">🗑️ Сбросить статистику</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==================== ДЕТАЛИЗИРОВАННЫЕ ПЛАТЫ ====================
+    const boards = {
+        tht: { name:'THT резистор', pads:[{x:0.35,y:0.5,r:18,id:0},{x:0.65,y:0.5,r:18,id:1}], idealTemp:{min:320,max:360}, info:'Два вывода. Прогрев 1–2 сек.',
+            draw:(ctx,w,h,step,solderedFlags,selectedId)=>{
+                ctx.fillStyle='#2c5a2e'; ctx.fillRect(0,0,w,h);
+                // дорожки
+                ctx.beginPath(); ctx.moveTo(w*0.25,h*0.5); ctx.lineTo(w*0.35,h*0.5); ctx.lineTo(w*0.65,h*0.5); ctx.lineTo(w*0.75,h*0.5);
+                ctx.lineWidth=4; ctx.strokeStyle='#E3B87C'; ctx.stroke();
+                // площадки
+                boards.tht.pads.forEach(p=>{
+                    let grad=ctx.createRadialGradient(w*p.x-5,h*p.y-5,5,w*p.x,h*p.y,p.r+2);
+                    grad.addColorStop(0,'#FFD966'); grad.addColorStop(1,'#B87C2E');
+                    ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(w*p.x,h*p.y,p.r,0,2*Math.PI); ctx.fill();
+                    ctx.strokeStyle='#AA8C54'; ctx.stroke();
+                    if(selectedId===p.id){ ctx.beginPath(); ctx.arc(w*p.x,h*p.y,p.r+4,0,2*Math.PI); ctx.fillStyle='#FF8C4288'; ctx.fill(); }
+                    if(solderedFlags[p.id]){ ctx.beginPath(); ctx.arc(w*p.x,h*p.y,14,0,2*Math.PI); ctx.fillStyle='#C0C0E0'; ctx.fill(); ctx.fillStyle='#FFFFFFAA'; ctx.beginPath(); ctx.arc(w*p.x-3,h*p.y-3,3,0,2*Math.PI); ctx.fill(); }
+                });
+                // корпус
+                ctx.fillStyle='#A05E3A'; ctx.fillRect(w*0.45,h*0.45,w*0.1,h*0.1);
+                ctx.fillStyle='#E0B070'; ctx.fillRect(w*0.44,h*0.47,w*0.12,6);
+                ctx.fillStyle='#FFF9E0'; ctx.font=`bold ${w*0.035}px monospace`; ctx.fillText("R1", w*0.48, h*0.52);
+                if(step==='finished'){ ctx.fillStyle='gold'; ctx.font=`bold ${w*0.035}px sans-serif`; boards.tht.pads.forEach(p=>{ if(solderedFlags[p.id]) ctx.fillText("✓", w*p.x+12, h*p.y-8); }); }
+            } },
+        smd: { name:'SMD 1206', pads:[{x:0.4,y:0.5,r:12,id:0},{x:0.6,y:0.5,r:12,id:1}], idealTemp:{min:280,max:320}, info:'Два SMD контакта.',
+            draw:(ctx,w,h,step,solderedFlags,selectedId)=>{
+                ctx.fillStyle='#1F4D2E'; ctx.fillRect(0,0,w,h);
+                boards.smd.pads.forEach(p=>{
+                    let grad=ctx.createLinearGradient(w*p.x-10,h*p.y-6,w*p.x+10,h*p.y+6);
+                    grad.addColorStop(0,'#FFD966'); grad.addColorStop(1,'#B87C2E');
+                    ctx.fillStyle=grad; ctx.fillRect(w*p.x-10,h*p.y-6,20,12);
+                    if(selectedId===p.id){ ctx.fillStyle='#FF8C4288'; ctx.fillRect(w*p.x-10,h*p.y-6,20,12); }
+                    if(solderedFlags[p.id]){ ctx.fillStyle='#C0C0E0'; ctx.fillRect(w*p.x-10,h*p.y-6,20,12); ctx.fillStyle='#FFFFFFAA'; ctx.fillRect(w*p.x-5,h*p.y-3,4,3); }
+                });
+                ctx.fillStyle='#D9B48B'; ctx.fillRect(w*0.45,h*0.4,w*0.1,h*0.2);
+                ctx.fillStyle='#FFF9E0'; ctx.font=`${w*0.03}px monospace`; ctx.fillText("220", w*0.48, h*0.52);
+                if(step==='finished'){ ctx.fillStyle='gold'; ctx.font=`bold ${w*0.03}px sans-serif`; boards.smd.pads.forEach(p=>{ if(solderedFlags[p.id]) ctx.fillText("✓", w*p.x+5, h*p.y); }); }
+            } },
+        soic: { name:'SOIC-8', pads:Array.from({length:8},(_,i)=> i<4?{x:0.2,y:0.3+i*0.1,id:i}:{x:0.8,y:0.3+(i-4)*0.1,id:i}), idealTemp:{min:300,max:340}, info:'8 выводов.',
+            draw:(ctx,w,h,step,solderedFlags,selectedId)=>{
+                ctx.fillStyle='#1C4D2A'; ctx.fillRect(0,0,w,h);
+                ctx.fillStyle='#2A2F36'; ctx.fillRect(w*0.25,h*0.25,w*0.5,h*0.5);
+                boards.soic.pads.forEach(p=>{
+                    let grad=ctx.createLinearGradient(w*p.x-6,h*p.y-3,w*p.x+6,h*p.y+3);
+                    grad.addColorStop(0,'#FFD966'); grad.addColorStop(1,'#B87C2E');
+                    ctx.fillStyle=grad; ctx.fillRect(w*p.x-6,h*p.y-3,12,6);
+                    if(selectedId===p.id){ ctx.fillStyle='#FF8C4288'; ctx.fillRect(w*p.x-6,h*p.y-3,12,6); }
+                    if(solderedFlags[p.id]){ ctx.fillStyle='#C0C0E0'; ctx.fillRect(w*p.x-6,h*p.y-3,12,6); ctx.fillStyle='#FFFFFFAA'; ctx.fillRect(w*p.x-3,h*p.y-1,3,2); }
+                });
+                if(step==='finished'){ ctx.fillStyle='gold'; ctx.font=`bold ${w*0.02}px sans-serif`; boards.soic.pads.forEach(p=>{ if(solderedFlags[p.id]) ctx.fillText("✓", w*p.x+2, h*p.y); }); }
+            } },
+        led: { name:'LED 3мм', pads:[{x:0.4,y:0.6,r:14,id:0},{x:0.6,y:0.4,r:14,id:1}], idealTemp:{min:300,max:340}, info:'Два вывода.',
+            draw:(ctx,w,h,step,solderedFlags,selectedId)=>{
+                ctx.fillStyle='#2C5A2E'; ctx.fillRect(0,0,w,h);
+                const grad=ctx.createRadialGradient(w*0.5,h*0.45,5,w*0.5,h*0.45,25); grad.addColorStop(0,'#FFA500'); grad.addColorStop(1,'#CC7000');
+                ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(w*0.5,h*0.45,22,0,2*Math.PI); ctx.fill();
+                boards.led.pads.forEach(p=>{
+                    let grad2=ctx.createRadialGradient(w*p.x-3,h*p.y-3,3,w*p.x,h*p.y,p.r);
+                    grad2.addColorStop(0,'#FFD966'); grad2.addColorStop(1,'#B87C2E');
+                    ctx.fillStyle=grad2; ctx.beginPath(); ctx.arc(w*p.x,h*p.y,p.r,0,2*Math.PI); ctx.fill();
+                    if(selectedId===p.id){ ctx.beginPath(); ctx.arc(w*p.x,h*p.y,p.r+4,0,2*Math.PI); ctx.fillStyle='#FF8C4288'; ctx.fill(); }
+                    if(solderedFlags[p.id]){ ctx.beginPath(); ctx.arc(w*p.x,h*p.y,12,0,2*Math.PI); ctx.fillStyle='#C0C0E0'; ctx.fill(); ctx.fillStyle='#FFFFFFAA'; ctx.beginPath(); ctx.arc(w*p.x-3,h*p.y-3,3,0,2*Math.PI); ctx.fill(); }
+                });
+                if(step==='finished'){ ctx.fillStyle='gold'; ctx.font=`bold ${w*0.03}px sans-serif`; boards.led.pads.forEach(p=>{ if(solderedFlags[p.id]) ctx.fillText("✓", w*p.x+5, h*p.y); }); }
+            } },
+        capacitor: { name:'Конденсатор', pads:[{x:0.45,y:0.55,r:14,id:0},{x:0.55,y:0.55,r:14,id:1}], idealTemp:{min:300,max:350}, info:'Два вывода.',
+            draw:(ctx,w,h,step,solderedFlags,selectedId)=>{
+                ctx.fillStyle='#1F6130'; ctx.fillRect(0,0,w,h);
+                ctx.fillStyle='#D9B48B'; ctx.fillRect(w*0.44,h*0.45,w*0.12,h*0.18);
+                boards.capacitor.pads.forEach(p=>{
+                    let grad=ctx.createRadialGradient(w*p.x-3,h*p.y-3,3,w*p.x,h*p.y,p.r);
+                    grad.addColorStop(0,'#FFD966'); grad.addColorStop(1,'#B87C2E');
+                    ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(w*p.x,h*p.y,p.r,0,2*Math.PI); ctx.fill();
+                    if(selectedId===p.id){ ctx.beginPath(); ctx.arc(w*p.x,h*p.y,p.r+4,0,2*Math.PI); ctx.fillStyle='#FF8C4288'; ctx.fill(); }
+                    if(solderedFlags[p.id]){ ctx.beginPath(); ctx.arc(w*p.x,h*p.y,12,0,2*Math.PI); ctx.fillStyle='#C0C0E0'; ctx.fill(); ctx.fillStyle='#FFFFFFAA'; ctx.beginPath(); ctx.arc(w*p.x-3,h*p.y-3,3,0,2*Math.PI); ctx.fill(); }
+                });
+                if(step==='finished'){ ctx.fillStyle='gold'; ctx.font=`bold ${w*0.03}px sans-serif`; boards.capacitor.pads.forEach(p=>{ if(solderedFlags[p.id]) ctx.fillText("✓", w*p.x+5, h*p.y); }); }
+            } },
+        transistor: { name:'Транзистор', pads:[{x:0.3,y:0.7,r:14,id:0},{x:0.5,y:0.7,r:14,id:1},{x:0.7,y:0.7,r:14,id:2}], idealTemp:{min:310,max:350}, info:'Три вывода.',
+            draw:(ctx,w,h,step,solderedFlags,selectedId)=>{
+                ctx.fillStyle='#2C6E3A'; ctx.fillRect(0,0,w,h);
+                ctx.fillStyle='#4A5A6E'; ctx.fillRect(w*0.35,h*0.5,w*0.3,h*0.25);
+                boards.transistor.pads.forEach(p=>{
+                    let grad=ctx.createRadialGradient(w*p.x-3,h*p.y-3,3,w*p.x,h*p.y,p.r);
+                    grad.addColorStop(0,'#FFD966'); grad.addColorStop(1,'#B87C2E');
+                    ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(w*p.x,h*p.y,p.r,0,2*Math.PI); ctx.fill();
+                    if(selectedId===p.id){ ctx.beginPath(); ctx.arc(w*p.x,h*p.y,p.r+4,0,2*Math.PI); ctx.fillStyle='#FF8C4288'; ctx.fill(); }
+                    if(solderedFlags[p.id]){ ctx.beginPath(); ctx.arc(w*p.x,h*p.y,12,0,2*Math.PI); ctx.fillStyle='#C0C0E0'; ctx.fill(); ctx.fillStyle='#FFFFFFAA'; ctx.beginPath(); ctx.arc(w*p.x-3,h*p.y-3,3,0,2*Math.PI); ctx.fill(); }
+                });
+                if(step==='finished'){ ctx.fillStyle='gold'; ctx.font=`bold ${w*0.03}px sans-serif`; boards.transistor.pads.forEach(p=>{ if(solderedFlags[p.id]) ctx.fillText("✓", w*p.x+5, h*p.y); }); }
+            } },
+        connector: { name:'Разъём 2x3', pads:Array.from({length:6},(_,i)=>({x:0.3+(i%3)*0.2, y:0.4+Math.floor(i/3)*0.25, r:12, id:i})), idealTemp:{min:320,max:360}, info:'6 контактов.',
+            draw:(ctx,w,h,step,solderedFlags,selectedId)=>{
+                ctx.fillStyle='#1F5D3A'; ctx.fillRect(0,0,w,h);
+                boards.connector.pads.forEach(p=>{
+                    let grad=ctx.createRadialGradient(w*p.x-3,h*p.y-3,3,w*p.x,h*p.y,p.r);
+                    grad.addColorStop(0,'#FFD966'); grad.addColorStop(1,'#B87C2E');
+                    ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(w*p.x,h*p.y,p.r,0,2*Math.PI); ctx.fill();
+                    if(selectedId===p.id){ ctx.beginPath(); ctx.arc(w*p.x,h*p.y,p.r+4,0,2*Math.PI); ctx.fillStyle='#FF8C4288'; ctx.fill(); }
+                    if(solderedFlags[p.id]){ ctx.beginPath(); ctx.arc(w*p.x,h*p.y,10,0,2*Math.PI); ctx.fillStyle='#C0C0E0'; ctx.fill(); ctx.fillStyle='#FFFFFFAA'; ctx.beginPath(); ctx.arc(w*p.x-3,h*p.y-3,3,0,2*Math.PI); ctx.fill(); }
+                });
+                if(step==='finished'){ ctx.fillStyle='gold'; ctx.font=`bold ${w*0.025}px sans-serif`; boards.connector.pads.forEach(p=>{ if(solderedFlags[p.id]) ctx.fillText("✓", w*p.x+5, h*p.y); }); }
+            } },
+        crystal: { name:'Кварц', pads:[{x:0.4,y:0.5,r:12,id:0},{x:0.6,y:0.5,r:12,id:1}], idealTemp:{min:280,max:320}, info:'Два вывода.',
+            draw:(ctx,w,h,step,solderedFlags,selectedId)=>{
+                ctx.fillStyle='#1E5A2E'; ctx.fillRect(0,0,w,h);
+                ctx.fillStyle='#C0C0C0'; ctx.fillRect(w*0.44,h*0.4,w*0.12,h*0.2);
+                boards.crystal.pads.forEach(p=>{
+                    let grad=ctx.createRadialGradient(w*p.x-3,h*p.y-3,3,w*p.x,h*p.y,p.r);
+                    grad.addColorStop(0,'#FFD966'); grad.addColorStop(1,'#B87C2E');
+                    ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(w*p.x,h*p.y,p.r,0,2*Math.PI); ctx.fill();
+                    if(selectedId===p.id){ ctx.beginPath(); ctx.arc(w*p.x,h*p.y,p.r+4,0,2*Math.PI); ctx.fillStyle='#FF8C4288'; ctx.fill(); }
+                    if(solderedFlags[p.id]){ ctx.beginPath(); ctx.arc(w*p.x,h*p.y,10,0,2*Math.PI); ctx.fillStyle='#C0C0E0'; ctx.fill(); ctx.fillStyle='#FFFFFFAA'; ctx.beginPath(); ctx.arc(w*p.x-3,h*p.y-3,3,0,2*Math.PI); ctx.fill(); }
+                });
+                if(step==='finished'){ ctx.fillStyle='gold'; ctx.font=`bold ${w*0.03}px sans-serif`; boards.crystal.pads.forEach(p=>{ if(solderedFlags[p.id]) ctx.fillText("✓", w*p.x+5, h*p.y); }); }
+            } },
+        mcu: { name:'MCU QFP32', pads:Array.from({length:32},(_,i)=>{ let side=Math.floor(i/8); let pos=i%8; return {x: side===0?0.2: side===1?0.8: side===2?0.2+pos*0.085:0.2+pos*0.085, y: side===0?0.2+pos*0.07: side===1?0.2+pos*0.07: side===2?0.75:0.25, r:8, id:i }; }), idealTemp:{min:300,max:340}, info:'32 вывода.',
+            draw:(ctx,w,h,step,solderedFlags,selectedId)=>{
+                ctx.fillStyle='#1F4D2E'; ctx.fillRect(0,0,w,h);
+                ctx.fillStyle='#2A2F36'; ctx.fillRect(w*0.2,h*0.2,w*0.6,h*0.6);
+                boards.mcu.pads.forEach(p=>{
+                    let grad=ctx.createLinearGradient(w*p.x-4,h*p.y-2,w*p.x+4,h*p.y+2);
+                    grad.addColorStop(0,'#FFD966'); grad.addColorStop(1,'#B87C2E');
+                    ctx.fillStyle=grad; ctx.fillRect(w*p.x-4,h*p.y-2,8,4);
+                    if(selectedId===p.id){ ctx.fillStyle='#FF8C4288'; ctx.fillRect(w*p.x-4,h*p.y-2,8,4); }
+                    if(solderedFlags[p.id]){ ctx.fillStyle='#C0C0E0'; ctx.fillRect(w*p.x-4,h*p.y-2,8,4); }
+                });
+                if(step==='finished'){ ctx.fillStyle='gold'; ctx.font=`bold ${w*0.015}px sans-serif`; boards.mcu.pads.forEach(p=>{ if(solderedFlags[p.id]) ctx.fillText("✓", w*p.x+2, h*p.y); }); }
+            } }
+    };
+    for(let b in boards) boards[b].pads.forEach(p=>p.soldered=false);
+
+    // Глобальные переменные
+    let currentBoard = 'tht';
+    let step = 'idle'; // idle, heated, soldering, finished
+    let appliedTemp = 300;
+    let mistakeCount = 0;
+    let attemptData = { totalAttempts: 0, allScores: [] };
+    let soundEnabled = true;
+    let leftyMode = false;
+    let lang = 'ru';
+    let selectedPadId = null; // выбранный контакт
+    let scoreChart = null;
+
+    // DOM
+    const canvas = document.getElementById('pcbCanvas');
+    const ctx = canvas.getContext('2d');
+    const tempSlider = document.getElementById('tempSlider');
+    const tempValueSpan = document.getElementById('tempValue');
+    const stepHeatBtn = document.getElementById('stepHeatBtn');
+    const stepSolderBtn = document.getElementById('stepSolderBtn');
+    const stepFinishBtn = document.getElementById('stepFinishBtn');
+    const resetBtn = document.getElementById('emergencyReset');
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    const statusMessageDiv = document.getElementById('statusMessage');
+    const mistakeDetailsDiv = document.getElementById('mistakeDetails');
+    const qualityHintDiv = document.getElementById('qualityHint');
+    const tempHintSpan = document.getElementById('tempHint');
+    const componentInfoSpan = document.getElementById('componentInfo');
+    const progressStepsDiv = document.getElementById('progressSteps');
+    const selectedHintSpan = document.getElementById('selectedHint');
+    const clearStatsBtn = document.getElementById('clearStatsBtn');
+    const exportPdfBtn = document.getElementById('exportPdfBtn');
+    const langToggle = document.getElementById('langToggle');
+    const soundToggle = document.getElementById('soundToggle');
+    const leftyToggle = document.getElementById('leftyToggle');
+    const statsTotalAttempts = document.getElementById('statsTotalAttempts');
+    const statsAvgScore = document.getElementById('statsAvgScore');
+    const statsBestScore = document.getElementById('statsBestScore');
+    const attemptsListDiv = document.getElementById('attemptsList');
+    const recommendationText = document.getElementById('recommendationText');
+
+    function playBeep(freq=800, duration=0.2) {
+        if(!soundEnabled) return;
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.type = 'sine'; osc.frequency.value = freq;
+            gain.gain.value = 0.2;
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+            osc.stop(audioCtx.currentTime + duration);
+        } catch(e) {}
+    }
+
+    function drawBoard() {
+        const b = boards[currentBoard];
+        const solderedFlags = b.pads.map(p => p.soldered);
+        b.draw(ctx, canvas.width, canvas.height, step, solderedFlags, selectedPadId);
+    }
+
+    // Обработка клика по канвасу: выбор контакта
+    function handleCanvasClick(e) {
+        if(step === 'finished') return;
+        let clientX, clientY;
+        if(e.touches) { clientX=e.touches[0].clientX; clientY=e.touches[0].clientY; }
+        else { clientX=e.clientX; clientY=e.clientY; }
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
+        let cx = (clientX - rect.left)*scaleX, cy = (clientY - rect.top)*scaleY;
+        if(cx<0||cx>canvas.width||cy<0||cy>canvas.height) return;
+        let clickedPad = null;
+        for(let pad of boards[currentBoard].pads) {
+            let padX = pad.x*canvas.width, padY = pad.y*canvas.height, rad = pad.r||12;
+            if(Math.hypot(cx-padX, cy-padY) < rad+5) { clickedPad = pad; break; }
+        }
+        if(clickedPad) {
+            if(clickedPad.soldered) {
+                statusMessageDiv.innerHTML = '⚠️ Этот контакт уже пропаян!';
+                playBeep(400,0.1);
+            } else {
+                selectedPadId = clickedPad.id;
+                updateSelectedHint();
+                statusMessageDiv.innerHTML = `✅ Выбран контакт ${clickedPad.id+1}. Нажмите «Подать припой».`;
+                drawBoard();
+            }
+        } else {
+            selectedPadId = null;
+            updateSelectedHint();
+            statusMessageDiv.innerHTML = 'Кликните по контакту для выбора.';
+            drawBoard();
+        }
+    }
+
+    function updateSelectedHint() {
+        if(selectedPadId !== null) selectedHintSpan.innerHTML = `🔍 Выбран контакт ${selectedPadId+1}`;
+        else selectedHintSpan.innerHTML = `🔍 Выберите контакт на плате`;
+    }
+
+    function updateProgressUI() {
+        const pads = boards[currentBoard].pads;
+        progressStepsDiv.innerHTML = pads.map(p => {
+            let cls = 'step-dot';
+            if(p.soldered) cls += ' soldered';
+            if(selectedPadId === p.id) cls += ' selected';
+            return `<div class="${cls}" data-id="${p.id}">${p.soldered?'✓':(p.id+1)}</div>`;
+        }).join('');
+        // добавляем обработчики клика по точкам прогресса для выбора контакта
+        document.querySelectorAll('.step-dot').forEach(el => {
+            if(!el.classList.contains('soldered')) {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const id = parseInt(el.dataset.id);
+                    if(!boards[currentBoard].pads[id].soldered) {
+                        selectedPadId = id;
+                        updateSelectedHint();
+                        statusMessageDiv.innerHTML = `✅ Выбран контакт ${id+1}. Нажмите «Подать припой».`;
+                        drawBoard();
+                    }
+                });
+            }
+        });
+    }
+
+    function allPadsSoldered() { return boards[currentBoard].pads.every(p=>p.soldered); }
+
+    function updateUI() {
+        let t=parseInt(tempSlider.value);
+        tempValueSpan.innerText = t+"°C";
+        if(step==='idle') appliedTemp=t;
+        else tempSlider.value=appliedTemp;
+        stepHeatBtn.disabled = (step !== 'idle');
+        stepSolderBtn.disabled = (step !== 'heated' && step !== 'soldering') || selectedPadId === null;
+        if(step === 'soldering') { stepSolderBtn.disabled = false; stepSolderBtn.classList.add('active'); }
+        else stepSolderBtn.classList.remove('active');
+        if(step === 'soldering' && allPadsSoldered()) { stepFinishBtn.disabled = false; stepFinishBtn.classList.add('active'); }
+        else { stepFinishBtn.disabled = true; stepFinishBtn.classList.remove('active'); }
+        drawBoard();
+        updateProgressUI();
+    }
+
+    function evaluateSoldering() {
+        let errs=[], score=100;
+        const ideal=boards[currentBoard].idealTemp;
+        if(appliedTemp<ideal.min){ errs.push(`❌ Низкая температура (${appliedTemp}°C)`); score-=35; }
+        else if(appliedTemp>ideal.max){ errs.push(`⚠️ Перегрев (${appliedTemp}°C)`); score-=30; }
+        else errs.push(`✅ Температура в норме`);
+        if(mistakeCount>0){ errs.push(`⚠️ Неправильных попыток: ${mistakeCount}`); score -= mistakeCount*5; }
+        let ct=(Math.random()*2+1).toFixed(1);
+        if(ct>2.5){ errs.push(`⏱️ Долгий контакт (${ct}с)`); score-=20; }
+        else if(ct<1.2){ errs.push(`⚡ Слишком быстро`); score-=18; }
+        let amt=Math.random()*40+60;
+        if(amt<70){ errs.push(`🪫 Мало припоя`); score-=25; }
+        else if(amt>95){ errs.push(`💧 Избыток припоя`); score-=20; }
+        score = Math.min(100, Math.max(0, score));
+        let qt=score>=85?"ИДЕАЛЬНАЯ":(score>=65?"ХОРОШО":(score>=45?"УДОВЛЕТВОРИТЕЛЬНО":"ПЛОХО"));
+        return {score, qualityText:qt, mistakes:errs};
+    }
+    function finishSoldering() {
+        if(step !== 'soldering' || !allPadsSoldered()){ statusMessageDiv.innerHTML='Пропаяйте все контакты!'; return; }
+        const ev=evaluateSoldering();
+        step='finished';
+        selectedPadId = null;
+        updateSelectedHint();
+        updateUI();
+        scoreDisplay.innerText = ev.score+" / 100";
+        statusMessageDiv.innerHTML = `Пайка завершена! ${ev.qualityText}`;
+        mistakeDetailsDiv.innerHTML = ev.mistakes.map(m=>`<div>${m}</div>`).join('');
+        qualityHintDiv.innerHTML = ev.score>=85?"🎉 Отлично!":"📘 Попробуйте ещё раз.";
+        addAttempt(ev.score);
+        playBeep(1200,0.3);
+    }
+    function heatStep() {
+        if(step !== 'idle') return;
+        step = 'heated';
+        updateUI();
+        statusMessageDiv.innerHTML = 'Паяльник нагрет! Выберите контакт и нажмите "Подать припой".';
+        playBeep(800,0.2);
+    }
+    function solderStep() {
+        if(step !== 'heated' && step !== 'soldering') { statusMessageDiv.innerHTML = 'Сначала нагрейте паяльник.'; return; }
+        if(selectedPadId === null) { statusMessageDiv.innerHTML = 'Сначала выберите контакт на плате!'; mistakeCount++; updateUI(); return; }
+        const pad = boards[currentBoard].pads.find(p=>p.id === selectedPadId);
+        if(!pad) return;
+        if(pad.soldered) { statusMessageDiv.innerHTML = 'Этот контакт уже пропаян!'; mistakeCount++; updateUI(); return; }
+        pad.soldered = true;
+        selectedPadId = null;
+        updateSelectedHint();
+        updateProgressUI();
+        statusMessageDiv.innerHTML = `Контакт ${pad.id+1} пропаян! Осталось: ${boards[currentBoard].pads.filter(p=>!p.soldered).length}`;
+        if(step === 'heated') step = 'soldering';
+        updateUI();
+        playBeep(1000,0.15);
+        if(allPadsSoldered()) statusMessageDiv.innerHTML = `Все контакты пропаяны! Нажмите "Завершить".`;
+    }
+    function resetTrainer() {
+        step = 'idle'; mistakeCount = 0; selectedPadId = null;
+        boards[currentBoard].pads.forEach(p=>p.soldered=false);
+        updateProgressUI();
+        scoreDisplay.innerText = "—";
+        statusMessageDiv.innerHTML = 'Ожидание. Выберите температуру и нажмите "НАГРЕТЬ".';
+        mistakeDetailsDiv.innerHTML = '';
+        qualityHintDiv.innerHTML = `Рекомендация: ${boards[currentBoard].idealTemp.min}–${boards[currentBoard].idealTemp.max}°C.`;
+        updateSelectedHint();
+        updateUI();
+    }
+    function changeBoard(boardId) {
+        currentBoard = boardId;
+        document.querySelectorAll('.board-btn').forEach(btn=>{
+            if(btn.dataset.board===boardId) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+        const b=boards[currentBoard];
+        tempHintSpan.innerHTML = `Рек. темп.: ${b.idealTemp.min}–${b.idealTemp.max}°C`;
+        componentInfoSpan.innerHTML = `<strong>${b.name}</strong><br>${b.info}`;
+        resetTrainer();
+    }
+
+    // статистика (как в предыдущей версии)
+    function loadStats() {
+        const saved = localStorage.getItem('soldering_stats_v4');
+        if(saved) { try { const d=JSON.parse(saved); attemptData=d; } catch(e){} }
+        updateStatsUI();
+    }
+    function saveStats() { localStorage.setItem('soldering_stats_v4', JSON.stringify(attemptData)); updateStatsUI(); }
+    function updateStatsUI() {
+        statsTotalAttempts.innerText = attemptData.totalAttempts;
+        let avg=0, best=0;
+        if(attemptData.allScores.length){
+            avg=Math.round(attemptData.allScores.reduce((a,b)=>a+b,0)/attemptData.allScores.length);
+            best=Math.max(...attemptData.allScores);
+        }
+        statsAvgScore.innerText = avg ? avg+'/100' : '—';
+        statsBestScore.innerText = best ? best+'/100' : '—';
+        if(attemptData.allScores.length===0) attemptsListDiv.innerHTML='<div style="text-align:center;">Нет данных</div>';
+        else {
+            attemptsListDiv.innerHTML = attemptData.allScores.slice().reverse().map((s,i)=> `<div class="attempt-item"><span>Попытка #${attemptData.allScores.length-i}</span><span class="attempt-score">${s}/100</span></div>`).join('');
+        }
+        if(scoreChart) scoreChart.destroy();
+        const chartCtx = document.getElementById('scoreChart').getContext('2d');
+        scoreChart = new Chart(chartCtx, {
+            type: 'line',
+            data: { labels: attemptData.allScores.map((_,i)=>i+1), datasets: [{ label: 'Баллы', data: attemptData.allScores, borderColor: '#FF8C42', tension:0.2, fill:false }] },
+            options: { responsive: true, maintainAspectRatio: true }
+        });
+        let rec = '';
+        if(attemptData.allScores.length) {
+            let a = avg;
+            if(a>=85) rec='Отлично! Вы демонстрируете высокий уровень.';
+            else if(a>=65) rec='Хорошо. Обратите внимание на температуру и время контакта.';
+            else rec='Требуется доработка. Используйте флюс и стабилизируйте руку.';
+        } else rec='Выполните несколько попыток для рекомендаций.';
+        recommendationText.innerText = rec;
+    }
+    function addAttempt(score) {
+        attemptData.totalAttempts++;
+        attemptData.allScores.push(score);
+        saveStats();
+    }
+    function clearStats() { if(confirm('Удалить статистику?')) { attemptData={totalAttempts:0,allScores:[]}; saveStats(); updateStatsUI(); } }
+    function exportPDF() {
+        const element = document.getElementById('statsTab');
+        html2pdf().from(element).set({ margin:0.5, filename: 'soldering_report.pdf' }).save();
+    }
+
+    // языки
+    function applyLanguage() {
+        const t = lang === 'ru' ? 
+            { heat:'🔥 НАГРЕТЬ', solder:'🟡 ПОДАТЬ припой', finish:'✅ ЗАВЕРШИТЬ', reset:'🔄 Сбросить' } :
+            { heat:'🔥 HEAT', solder:'🟡 APPLY SOLDER', finish:'✅ FINISH', reset:'🔄 RESET' };
+        stepHeatBtn.innerText = t.heat;
+        stepSolderBtn.innerText = t.solder;
+        stepFinishBtn.innerText = t.finish;
+        resetBtn.innerText = t.reset;
+    }
+
+    function setLeftyMode(enable) {
+        leftyMode = enable;
+        if(enable) document.querySelector('.trainer-container').classList.add('lefty-mode');
+        else document.querySelector('.trainer-container').classList.remove('lefty-mode');
+    }
+
+    function init() {
+        loadStats();
+        changeBoard('tht');
+        tempSlider.addEventListener('input',()=>{ if(step==='idle'){ appliedTemp=parseInt(tempSlider.value); tempValueSpan.innerText=appliedTemp+"°C"; drawBoard(); } else { tempSlider.value=appliedTemp; } });
+        stepHeatBtn.addEventListener('click',heatStep);
+        stepSolderBtn.addEventListener('click',solderStep);
+        stepFinishBtn.addEventListener('click',finishSoldering);
+        resetBtn.addEventListener('click',resetTrainer);
+        clearStatsBtn.addEventListener('click',clearStats);
+        exportPdfBtn.addEventListener('click',exportPDF);
+        langToggle.addEventListener('click',()=>{ lang = lang==='ru'?'en':'ru'; langToggle.innerText = lang==='ru'?'🇷🇺 RU':'🇬🇧 EN'; applyLanguage(); });
+        soundToggle.addEventListener('click',()=>{ soundEnabled=!soundEnabled; soundToggle.innerText = soundEnabled?'🔊 Звук вкл':'🔇 Звук выкл'; });
+        leftyToggle.addEventListener('click',()=>{ leftyMode=!leftyMode; setLeftyMode(leftyMode); leftyToggle.innerText = leftyMode?'🖐️ Правша':'🖐️ Левша'; });
+        document.querySelectorAll('.board-btn').forEach(btn=>btn.addEventListener('click',()=>changeBoard(btn.dataset.board)));
+        canvas.addEventListener('click', handleCanvasClick);
+        canvas.addEventListener('touchstart', (e)=>{ e.preventDefault(); handleCanvasClick(e); });
+        // tabs
+        document.querySelectorAll('.tab-btn').forEach(btn=>{
+            btn.addEventListener('click',()=>{
+                document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+                btn.classList.add('active');
+                document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+                document.getElementById(btn.dataset.tab+'Tab').classList.add('active');
+                if(btn.dataset.tab==='stats') updateStatsUI();
+            });
+        });
+        applyLanguage();
+        drawBoard();
+    }
+    init();
+</script>
+</body>
+</html>
